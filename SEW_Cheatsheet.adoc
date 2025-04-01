@@ -1,0 +1,388 @@
+= SEW Cheatsheet 5BHITM
+
+= Backend
+
+== Model
+
+Entity
+
+[source,java]
+----
+@Entity
+public class Model extends PanacheEntityBase {
+// OR PanacheEntity (No definition of ID requiered)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "model_seq")
+    @SequenceGenerator(name = "model_seq", sequenceName = "model_seq", initialValue = 100) // OPTIONAL
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "otherModel_id")
+    private OtherModel otherModel;
+
+    @OneToMany(mappedBy = "model", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    public List<otherModel2> otherModels2;
+
+    // ManyToMany in Model1
+    @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
+    @JoinTable(name = "model1_model2", joinColumns = @JoinColumn(name = "model1_id"), inverseJoinColumns = @JoinColumn(name = "model2_id"))
+    private List<Model2> model2List;
+
+    // ManyToMany in Model2
+    @ManyToMany(mappedBy = "model2List")
+    private List<Model1> model1List;
+
+    @Enumerated(EnumType.STRING)
+    private Enum enumValue;
+
+    // DEFAULT CONSTRUCTOR + GETTER AND SETTER
+}
+----
+
+Inheritance
+
+[source,java]
+----
+@Entity
+@Inheritance(strategy = InheritanceType.JOINED) // or .SINGLE_TABLE or .TABLE_PER_CLASS
+public class ParentModel ...
+----
+
+DTO
+
+[source,java]
+----
+public record ModelDTO(DataType param1, ...) { }
+----
+
+== Repository
+
+[source,java]
+----
+@ApplicationScoped
+public class ModelRepository implements PanacheRepository<Model> {
+    @Inject
+    OtherRepo otherRepo;
+
+    public void panacheFunction() {
+        // Panache Functions:
+        find("param", param);
+        findById(id);
+        list();
+        listAll();
+        delete("param", param);
+        deleteById(id);
+        persist(model);
+        ...
+    }
+
+    public List<Model> entityManagerFunction() {
+        return getEntityManager().createQuery("SELECT m FROM Model m WHERE m.param = :param", Sport.class)
+                .setParameter("param", "Value")
+                .getResultList();
+    }
+}
+----
+
+== Resource
+
+[source,java]
+----
+import jakarta.transaction.Transactional;import jakarta.ws.rs.POST;import jakarta.ws.rs.Path;@Path("/path")
+public class CourseResource {
+
+    // Inject Repo
+
+    @GET // or POST, PUT, DELETE
+    @Path("/{param}")
+    public DataType function(@PathParam("param") DataType param) {
+        ...
+    }
+
+    @POST
+    @Path("/")
+    @Transactional
+    public Response postFunction(DataType bodyData) {
+        ...
+        return Response.status(statusCode).entity(data).build();
+    }
+}
+----
+
+Websockets
+
+[source,java]
+----
+@ServerEndpoint("/socket")
+@ApplicationScoped
+public class CalenderSocket {
+    @Inject
+    ObjectMapper objectMapper;
+
+    Set<Session> sessions = new HashSet<>();
+
+    @OnOpen
+    public void onOpen(Session session) {
+        sessions.add(session);
+        ...
+    }
+
+    // Same for OnClose as OnOpen but remove session
+
+    @OnError
+    public void onError(Session session, Throwable throwable) {
+        ...
+    }
+
+    @OnMessage
+    public void onMessage(String message, @PathParam("name") String name) {
+        ...
+    }
+
+    public void broadcast(DataType data) {
+        try{
+            String data = objectMapper.writeValueAsString(data);
+            sessions.forEach(s -> {
+                s.getAsyncRemote().sendObject(data, result -> {
+                    // check for Exeption -> result.getExeption
+                    ...
+                });
+            });
+        }catch (Exception e){
+            ...
+        }
+    }
+}
+----
+
+= Frontend
+
+== Angular Commands
+
+----
+// Start Project
+ng serve
+
+// Generate Component
+ng g c component-name
+
+// Generate Service
+ng g s service-name
+
+// Generate Interface
+ng g i interface-name
+
+----
+
+== Angular Material
+
+----
+ng add @angular/material
+
+// Example for Angular Material Component
+ng g @angular/material:navigation menu
+----
+
+== General
+
+Binding
+
+----
+// One-Way Binding
+{{ value }}
+
+// Two-Way Binding
+[(ngModel)]="value"
+
+// Event Binding
+(click)="function()"
+
+// Property Binding
+[disabled]="isDisabled"
+----
+
+onInit
+
+----
+class Component implements OnInit {
+    ngOnInit() {
+        // Code
+    }
+}
+
+----
+
+ngFor
+
+----
+<div *ngFor="let value of values">
+...
+</div>
+----
+
+ngIf
+
+----
+<div *ngIf="...">
+Please select a school class.
+</div>
+----
+
+ngStyle
+
+----
+[ngStyle]="{'background-color': isBlue() ? 'blue' : 'green'}"
+----
+
+ngClass
+
+----
+[ngClass]="{cssClass: someFunction()}"
+----
+
+== Import / Export
+
+.parent.component.html
+
+----
+<app-children-component [inputName]="data" (outputName)="onEmit($event)"> // $event sends parameters to parent function
+----
+
+.children.component.ts
+
+----
+// name is optional and <Model> after EventEmitter is optional
+@Input("name") parameter: Model = {} as Model;
+@Output("name") parameterOutput = new EventEmitter<Model>();
+----
+
+== Routing
+
+.app.routes.ts
+
+----
+{path: 'route/:param', component: RouteComponent} // Without / in front of route
+{path: '**', component: NotFoundComponent} // Wildcard route
+----
+
+navigation
+
+----
+// RouterLink with routerLinkActive -> IMPORT in .component.ts
+<div routerLink="/" class="link" routerLinkActive="link-active" [routerLinkActiveOptions]="{exact: true}">
+      HOME
+</div>
+
+// RouterOutlet -> IMPORT in .component.html
+<router-outlet></router-outlet>
+----
+
+params
+
+.component.ts
+----
+route = inject(ActivatedRoute);
+
+// In the ngOnInit function
+this.route.params.subscribe(params => {
+      this.value = params['param'];
+})
+----
+
+== HttpClient
+
+.app.config.ts
+
+----
+provideHttpClient() // add to providers
+----
+
+.http.service.ts
+
+----
+constructor(private http: HttpClient) { }
+
+getData() {
+    return this.http.get<Model>(API_URL)
+}
+
+postData(data) {
+    return this.http.post(API_URL, data);
+}
+----
+
+.component.ts
+
+----
+httpService = inject(HttpService);
+
+// In load funtion
+this.httpService.getData().subscribe((value) => {
+    this.data = value;
+});
+----
+
+== Forms
+
+.component.html
+----
+<form [formGroup]="formName" (ngSubmit)="onSubmit()">
+      <div>
+        <label for="name">Name:</label>
+        <input id="name" formControlName="name" type="text">
+        <div *ngIf="studentForm.get('name')?.invalid && studentForm.get('name')?.touched">
+          Value is invalid.
+        </div>
+      </div>
+
+      <div>
+        <label for="dateValue">DatePicker:</label>
+        <input id="dateValue" formControlName="dateValue" type="date">
+      </div>
+
+      <div>
+        <label for="selectValue">Select:</label>
+        <select id="selectValue" formControlName="selectValue">
+          <option value="" disabled>Option 1</option>
+            // Multiple Options -> *ngFor
+        </select>
+      </div>
+
+      <button type="submit" [disabled]="formName.invalid">Submit</button>
+</form>
+----
+.component.ts
+----
+formName: FormGroup;
+
+  constructor(private fb: FormBuilder) {
+    this.studentForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      dateValue: ['', Validators.required],
+      selectPicker: ['', Validators.required]
+    });
+  }
+
+// Get Values
+this.formName.value.name
+
+// Reset Form
+this.formName.reset();
+
+----
+
+== Websockets
+
+.component.ts
+----
+ngOnInit() {
+    const socket = new WebSocket("ws://localhost:8080/socket");
+    socket.onmessage = (event: MessageEvent) => {
+      const data = JSON.parse(event.data);
+      console.log("Socket message: " + data);
+      this.courses = data;
+    };
+    // socket.onopen / .onmessage ...
+  }
+----
