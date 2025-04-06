@@ -400,7 +400,7 @@ formName: FormGroup;
     this.studentForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       dateValue: ['', Validators.required],
-      selectPicker: ['', Validators.required]
+      selectValue: ['', Validators.required]
     });
   }
 
