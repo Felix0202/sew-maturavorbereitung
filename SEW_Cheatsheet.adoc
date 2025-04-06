@@ -367,7 +367,7 @@ this.httpService.getData().subscribe((value) => {
 
 .component.html
 ----
-<form [formGroup]="formName" (ngSubmit)="onSubmit()">
+<form [formGroup]="studentForm" (ngSubmit)="onSubmit()">
       <div>
         <label for="name">Name:</label>
         <input id="name" formControlName="name" type="text">
@@ -389,12 +389,12 @@ this.httpService.getData().subscribe((value) => {
         </select>
       </div>
 
-      <button type="submit" [disabled]="formName.invalid">Submit</button>
+      <button type="submit" [disabled]="studentForm.invalid">Submit</button>
 </form>
 ----
 .component.ts
 ----
-formName: FormGroup;
+studentForm: FormGroup;
 
   constructor(private fb: FormBuilder) {
     this.studentForm = this.fb.group({
@@ -405,10 +405,10 @@ formName: FormGroup;
   }
 
 // Get Values
-this.formName.value.name
+this.studentForm.value.name
 
 // Reset Form
-this.formName.reset();
+this.studentForm.reset();
 
 ----
 
