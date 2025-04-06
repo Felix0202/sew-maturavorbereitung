@@ -9,34 +9,41 @@ Entity
 [source,java]
 ----
 @Entity
-public class Model extends PanacheEntityBase {
 // OR PanacheEntity (No definition of ID requiered)
+public class Model1 extends PanacheEntityBase {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "model_seq")
     @SequenceGenerator(name = "model_seq", sequenceName = "model_seq", initialValue = 100) // OPTIONAL
-    private Long id;
+    public Long id;
+
+    @Enumerated(EnumType.STRING) //OPTIONAL
+    public Enum enumValue;
 
     @ManyToOne
-    @JoinColumn(name = "otherModel_id")
-    private OtherModel otherModel;
+    @JoinColumn(name = "otherModel_id") //OPTIONAL
+    public OtherModel otherModel;
 
     @OneToMany(mappedBy = "model", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-    public List<otherModel2> otherModels2;
+    public List<Model2> model2List;
 
-    // ManyToMany in Model1
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
-    @JoinTable(name = "model1_model2", joinColumns = @JoinColumn(name = "model1_id"), inverseJoinColumns = @JoinColumn(name = "model2_id"))
-    private List<Model2> model2List;
+    @JoinTable(name = "model1_model2", joinColumns = @JoinColumn(name = "model1_id"), inverseJoinColumns = @JoinColumn(name = "model2_id")) //OPTIONAL
+    public List<Model2> otherModel2List;
 
-    // ManyToMany in Model2
-    @ManyToMany(mappedBy = "model2List")
-    private List<Model1> model1List;
+    // CONSTRUCTOR etc.
+}
 
-    @Enumerated(EnumType.STRING)
-    private Enum enumValue;
+public class Model2 extends PanacheEntity {
+    //does not need id because of PanacheEntity
 
-    // DEFAULT CONSTRUCTOR + GETTER AND SETTER
+    //bi directional relationships with Model1
+
+    @ManyToOne
+    public Model1 model;
+
+    @ManyToMany(mappedBy = "otherModel2List")
+    public List<Model1> model1List;
 }
 ----
 
@@ -61,19 +68,25 @@ public record ModelDTO(DataType param1, ...) { }
 [source,java]
 ----
 @ApplicationScoped
-public class ModelRepository implements PanacheRepository<Model> {
+// or PanacheRepository<Model> but then findById etc. only works if the ID of the model is a Long
+public class ModelRepository implements PanacheRepositoryBase<Model, ID_DataType> {
     @Inject
     OtherRepo otherRepo;
 
     public void panacheFunction() {
         // Panache Functions:
         find("param", param);
-        findById(id);
+        findById(id); // only working if ID is a Long or PanacheRepositoryBase is used
         list();
         listAll();
         delete("param", param);
-        deleteById(id);
+        deleteById(id); // only working if ID is a Long or PanacheRepositoryBase is used
         persist(model);
+        ...
+
+        // Sort Results
+        listAll(Sort.by("attribute").ascending())
+        listAll(Sort.by("lastName").and("firstName"));
         ...
     }
 
@@ -82,6 +95,14 @@ public class ModelRepository implements PanacheRepository<Model> {
                 .setParameter("param", "Value")
                 .getResultList();
     }
+
+    public List<Model> empPerLocation() {
+        TypedQuery<Model> query = getEntityManager().createQuery("select new at.htl.model.dto.DTO_Name(params, ...) " +
+                "from Table t " +
+                "left join Table2 t2 on (t2.paramName = t1.paramName)" +
+                "...", Model.class);
+        return query.getResultList();
+    }
 }
 ----
 
@@ -89,10 +110,11 @@ public class ModelRepository implements PanacheRepository<Model> {
 
 [source,java]
 ----
-import jakarta.transaction.Transactional;import jakarta.ws.rs.POST;import jakarta.ws.rs.Path;@Path("/path")
+@Path("/path")
 public class CourseResource {
 
-    // Inject Repo
+    @Inject
+    RepoClass Repo
 
     @GET // or POST, PUT, DELETE
     @Path("/{param}")
@@ -106,6 +128,9 @@ public class CourseResource {
     public Response postFunction(DataType bodyData) {
         ...
         return Response.status(statusCode).entity(data).build();
+
+        // Return a Created Respone with a URI to the object in the location header
+        return Response.created(new URI("link/to/object").build();
     }
 }
 ----
@@ -241,7 +266,17 @@ ngClass
 [ngClass]="{cssClass: someFunction()}"
 ----
 
-== Import / Export
+== Model
+
+----
+export interface Model {
+    id: number;
+    name: string;
+    ...
+}
+----
+
+== Import / Output
 
 .parent.component.html
 
@@ -284,10 +319,15 @@ params
 ----
 route = inject(ActivatedRoute);
 
-// In the ngOnInit function
+// Subscribe to param changes -> in the ngOnInit function
 this.route.params.subscribe(params => {
       this.value = params['param'];
 })
+
+// Get current param
+this.router.snapshot.paramMap.get('param')
+
+
 ----
 
 == HttpClient
@@ -383,6 +423,34 @@ ngOnInit() {
       console.log("Socket message: " + data);
       this.courses = data;
     };
-    // socket.onopen / .onmessage ...
+    // socket.onopen or .onmessage ...
   }
+----
+
+== Frontend Functionality
+
+=== Filter array
+
+.component.ts
+----
+array.filter(value => {
+        // check and return true/false
+    })
+----
+
+=== Disabled Button
+
+.component.html
+----
+<button [disabled]="!isValid">Speichern</button>
+----
+
+.component.ts
+----
+isValid: boolean = false;
+
+checkIfValid() {
+    // check and set true/false
+    this.isValid = true;
+}
 ----
