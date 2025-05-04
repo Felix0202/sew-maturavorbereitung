@@ -79,6 +79,7 @@ public class ModelRepository implements PanacheRepositoryBase<Model, ID_DataType
         findById(id); // only working if ID is a Long or PanacheRepositoryBase is used
         list();
         listAll();
+        listAll(Sort.by("name").ascending());
         delete("param", param);
         deleteById(id); // only working if ID is a Long or PanacheRepositoryBase is used
         persist(model);
@@ -90,19 +91,42 @@ public class ModelRepository implements PanacheRepositoryBase<Model, ID_DataType
         ...
     }
 
-    public List<Model> entityManagerFunction() {
-        return getEntityManager().createQuery("SELECT m FROM Model m WHERE m.param = :param", Sport.class)
-                .setParameter("param", "Value")
+    public List<ModelDTO> dtoFunction() {
+        return getEntityManager().createQuery("select new at.htl.dto.ModelDTO(params ...) from Entity e", ModelDTO.class)
                 .getResultList();
+
+        // OR
+
+        return listAll().stream()
+                .map(model -> model.getModelDTO()) // or create new DTO
+                .toList();
+    }
+
+    public List<Model> entityManagerFunction(Long value) {
+        return getEntityManager().createQuery("SELECT m FROM Model m WHERE m.param = :param", Sport.class)
+                .setParameter("param", "value")
+                .getResultList();
+
+
     }
 
     public List<Model> empPerLocation() {
-        TypedQuery<Model> query = getEntityManager().createQuery("select new at.htl.model.dto.DTO_Name(params, ...) " +
+        TypedQuery<Model> query = getEntityManager().createQuery("select new at.htl.model.dto.DTO_Name(params,COUNT(CASE WHEN p.role = true THEN 1 ELSE null END), ...) " +
                 "from Table t " +
                 "left join Table2 t2 on (t2.paramName = t1.paramName)" +
                 "...", Model.class);
         return query.getResultList();
     }
+
+    public Model listMax(){
+        TypedQuery<Model> typedQuery = em.createQuery("select m from Model m" +
+" left join Model2 m2 on m.id = m2=id" +
+"where t.done = false", Model.class);
+        typedQuery.setMaxResults(1);
+        Model model = typedQuery.getSingleResult();
+        return model;
+    }
+
 }
 ----
 
@@ -128,9 +152,24 @@ public class CourseResource {
     public Response postFunction(DataType bodyData) {
         ...
         return Response.status(statusCode).entity(data).build();
+        return Response.ok().entity(data).build();
 
         // Return a Created Respone with a URI to the object in the location header
         return Response.created(new URI("link/to/object").build();
+    }
+
+    @PUT
+    @Consumes({MediaType.APPLICATION_JSON})
+    @Produces({MediaType.APPLICATION_JSON})
+    @Transactional
+    public Response update(@PathParam("id") Long id, Course course) {
+        Course existing = courseRepo.findById(id);
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        existing.title = course.title;
+        ...
+        return Response.ok(existing).build();
     }
 }
 ----
@@ -317,6 +356,7 @@ params
 
 .component.ts
 ----
+router = inject(Router);
 route = inject(ActivatedRoute);
 
 // Subscribe to param changes -> in the ngOnInit function
@@ -325,9 +365,10 @@ this.route.params.subscribe(params => {
 })
 
 // Get current param
-this.router.snapshot.paramMap.get('param')
+this.route.snapshot.paramMap.get('param')
 
-
+//navigate to another route
+this.router.navigate(['/route', ...])
 ----
 
 == HttpClient
@@ -429,13 +470,22 @@ ngOnInit() {
 
 == Frontend Functionality
 
-=== Filter array
+=== Arrays
 
 .component.ts
 ----
 array.filter(value => {
         // check and return true/false
     })
+
+array.sort((a, b) =>
+        // compare a to b
+        // Sort String: a.localeCompare(b)
+        // Sort Number asc: a - b
+        // Sort Number desc: b - a
+    )
+
+array.splice(2, 1); // Removes 1 item at index 2
 ----
 
 === Disabled Button
@@ -454,3 +504,56 @@ checkIfValid() {
     this.isValid = true;
 }
 ----
+
+=== Select
+
+.component.html
+----
+<select [(ngModel)]="selectValue" (change)="changeFunction($event)">
+  <option value="" disabled>Default Option</option>
+  <option *ngFor="let option of options" value="{{option}}">{{option}</option>
+</select>
+----
+
+.component.ts
+----
+selectValue: string = "";
+options: DataType[] = [];
+
+// load options in ngOnInit
+
+changeFunction(e: any) {
+    this.selectValue = e.target.value;
+    // call update/reload Function if needed
+}
+----
+
+=== Radio Buttons
+
+.component.html
+----
+<div *ngFor="let option of options">
+  <input
+    type="radio"
+    name="radioGroupName"
+    [value]="option.id"
+    [(ngModel)]="selectedOptionId"
+    (change)="changeOption(option.id // or $event)"
+    >
+  {{option.name}}
+</div>
+----
+
+.component.ts
+----
+selectedOptionId: string = "";
+options: DataType[] = [];
+
+// load options in ngOnInit
+
+changeFunction(e: any) {
+    this.selectedOptionId = e; // or e.target.value if $event is used
+    // call update/reload Function if needed
+}
+----
+
